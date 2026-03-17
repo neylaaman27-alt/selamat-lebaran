@@ -1,0 +1,60 @@
+from flask import Flask, render_template, request, jsonify
+import sqlite3
+import os
+
+app = Flask(__name__)
+
+# ========================
+# INIT DATABASE
+# ========================
+def init_db():
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS pesan (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            isi TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# ========================
+# ROUTES
+# ========================
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/kirim", methods=["POST"])
+def kirim():
+    data = request.json
+    pesan = data.get("pesan")
+
+    if pesan:
+        conn = sqlite3.connect("database.db")
+        c = conn.cursor()
+        c.execute("INSERT INTO pesan (isi) VALUES (?)", (pesan,))
+        conn.commit()
+        conn.close()
+
+    return jsonify({"status": "ok"})
+
+@app.route("/pesan")
+def get_pesan():
+    conn = sqlite3.connect("database.db")
+    c = conn.cursor()
+    c.execute("SELECT isi FROM pesan ORDER BY id DESC")
+    data = c.fetchall()
+    conn.close()
+
+    return jsonify([p[0] for p in data])
+
+# ========================
+# RUN
+# ========================
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
