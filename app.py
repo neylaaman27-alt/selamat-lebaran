@@ -1,14 +1,18 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect
 import sqlite3
 import os
 
 app = Flask(__name__)
 
+DB_PATH = os.path.join(os.getcwd(), "database.db")
+
+ADMIN_PASSWORD = "1234"  # 🔐 GANTI SESUKA KAMU
+
 # ========================
 # INIT DATABASE
 # ========================
 def init_db():
-    conn = sqlite3.connect("database.db")
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS pesan (
@@ -30,27 +34,35 @@ def home():
 
 @app.route("/kirim", methods=["POST"])
 def kirim():
-    data = request.json
+    data = request.get_json()
     pesan = data.get("pesan")
 
     if pesan:
-        conn = sqlite3.connect("database.db")
+        conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("INSERT INTO pesan (isi) VALUES (?)", (pesan,))
         conn.commit()
         conn.close()
+        return jsonify({"status": "sukses"})
 
-    return jsonify({"status": "ok"})
+    return jsonify({"status": "gagal"})
 
-@app.route("/pesan")
-def get_pesan():
-    conn = sqlite3.connect("database.db")
+# 🔐 ADMIN ONLY
+@app.route("/admin")
+def admin():
+    password = request.args.get("password")
+
+    if password != ADMIN_PASSWORD:
+        return "Akses ditolak 😝"
+
+    conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     c.execute("SELECT isi FROM pesan ORDER BY id DESC")
     data = c.fetchall()
     conn.close()
 
-    return jsonify([p[0] for p in data])
+    return render_template("admin.html", pesan=data)
+
 
 # ========================
 # RUN
